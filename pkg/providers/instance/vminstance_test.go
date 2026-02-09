@@ -315,3 +315,78 @@ func TestValidateExistingCapacityReservation(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertVMSizeProperties(t *testing.T) {
+	tests := []struct {
+		name          string
+		provisionMode string
+		input         *v1beta1.VMSizeProperties
+		expected      *armcompute.VMSizeProperties
+	}{
+		{
+			name:          "nil input returns nil",
+			provisionMode: consts.ProvisionModeAKSScriptless,
+			input:         nil,
+			expected:      nil,
+		},
+		{
+			name:          "vCPUsPerCore set to 1 (SMT disabled) in scriptless mode",
+			provisionMode: consts.ProvisionModeAKSScriptless,
+			input: &v1beta1.VMSizeProperties{
+				VCPUsPerCore: lo.ToPtr(int32(1)),
+			},
+			expected: &armcompute.VMSizeProperties{
+				VCPUsPerCore: lo.ToPtr(int32(1)),
+			},
+		},
+		{
+			name:          "vCPUsPerCore set to 2 (SMT enabled) in scriptless mode",
+			provisionMode: consts.ProvisionModeAKSScriptless,
+			input: &v1beta1.VMSizeProperties{
+				VCPUsPerCore: lo.ToPtr(int32(2)),
+			},
+			expected: &armcompute.VMSizeProperties{
+				VCPUsPerCore: lo.ToPtr(int32(2)),
+			},
+		},
+		{
+			name:          "empty VMSizeProperties struct in scriptless mode",
+			provisionMode: consts.ProvisionModeAKSScriptless,
+			input:         &v1beta1.VMSizeProperties{},
+			expected:      &armcompute.VMSizeProperties{},
+		},
+		{
+			name:          "returns nil in AKS Machine API mode",
+			provisionMode: consts.ProvisionModeAKSMachineAPI,
+			input: &v1beta1.VMSizeProperties{
+				VCPUsPerCore: lo.ToPtr(int32(1)),
+			},
+			expected: nil,
+		},
+		{
+			name:          "returns nil in AKS Machine API header batch mode",
+			provisionMode: consts.ProvisionModeAKSMachineAPIHeaderBatch,
+			input: &v1beta1.VMSizeProperties{
+				VCPUsPerCore: lo.ToPtr(int32(1)),
+			},
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			result := convertVMSizeProperties(tt.input, tt.provisionMode)
+
+			if tt.expected == nil {
+				g.Expect(result).To(BeNil())
+			} else {
+				g.Expect(result).ToNot(BeNil())
+				if tt.expected.VCPUsPerCore != nil {
+					g.Expect(result.VCPUsPerCore).To(Equal(tt.expected.VCPUsPerCore))
+				}
+			}
+		})
+	}
+}
